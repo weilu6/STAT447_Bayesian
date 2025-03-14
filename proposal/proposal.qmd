@@ -1,0 +1,47 @@
+---
+title: "Bayesian Lasso logistic regression"
+author: "Wei Lu"
+format: pdf
+editor: visual
+---
+
+## Basic information
+
+**Team member**: Wei Lu
+
+**Github Link:**
+
+## Theme: Comparison between Bayesian classification models
+
+#### Compare the simple Logistic regression and Lasso logistic regression with spike-and-slab priors.
+
+**Motivation:** The classic Lasso regression performs feature selections inherently by shrinking coefficients to zero, but it is difficult to evaluate the significance of these coefficients. Instead, Bayesian Lasso provides an alternative to measure the uncertainty of parameters by credible intervals \[1\]. There are many types of priors on parameters such as the Laplace priors, the adaptive priors, the spike-and-slab priors, etc \[2\]. This project will focus on spike-and-slab priors and use the logistic link function to perform classification on the Pumpkin Seeds Dataset. Previous study shows that the frequentist's logistic regression achieves 87.92% accuracy on the same dataset\[3\]. This project aims to develop a calibrated hierarchical Lasso model to accurately classify the pumpkin seeds with less features. In addition, the posterior distributions of selected/unselected parameters under different situations (e.g. mis-specification, small sample size) will be investigated compared to the baseline model.
+
+### Potential approaches:
+
+First, we split the dataset into training data and testing data. Exploratory data analysis will be be performed on the training data, followed by data preprocessing. A simple Bayesian Logistic model will work as an baseline for comparison. The Lasso logistic model will be built following the recipe and references. After the initial evaluation, potential studies might be: (1) to further decrease the prior sensitivity. (2) to investigate the performance of models and the selected features when the data size becomes smaller.
+
+## Candidate datasets:
+
+Main dataset: <https://www.kaggle.com/datasets/muratkokludataset/pumpkin-seeds-dataset/data>
+
+```{r}
+suppressPackageStartupMessages(require(readxl))
+pumpkin_df <- read_xlsx("Data/Pumpkin_Seeds_Dataset.xlsx")
+head(pumpkin_df)
+```
+
+Backup dataset: <https://www.kaggle.com/datasets/erdemtaha/cancer-data/data>
+
+```{r}
+cancer_df <- read.csv("Data/Cancer_Data.csv")
+head(cancer_df)
+```
+
+## References:
+
+\[1\]: Park, T., & Casella, G. (2008). The Bayesian Lasso. Journal of the American Statistical Association, 103(482), 681–686. https://doi.org/10.1198/016214508000000337
+
+\[2\]: Chen, S. M., Bauer, D. J., Belzak, W. M., & Brandt, H. (2021). Advantages of Spike and Slab Priors for Detecting Differential Item Functioning Relative to Other Bayesian Regularizing Priors and Frequentist Lasso. *Structural Equation Modeling: A Multidisciplinary Journal*, *29*(1), 122–139. https://doi.org/10.1080/10705511.2021.1948335
+
+\[3\]: KOKLU, M., SARIGIL, S., & OZBEK, O. (2021). The use of machine learning methods in classification of pumpkin seeds (Cucurbita pepo L.). Genetic Resources and Crop Evolution, 68(7), 2713-2726. Doi: <https://doi.org/10.1007/s10722-021-01226-0>
