@@ -9,7 +9,7 @@ editor: visual
 
 **Team member**: Wei Lu
 
-**Github Link:**
+**Github Link:** <https://github.com/weilu6/STAT447_Bayesian>
 
 ## Theme: Comparison between Bayesian classification models
 
