@@ -1,0 +1,95 @@
+---
+title: "Analysis"
+author: "Wei"
+format: html
+editor: visual
+---
+
+## EDA
+
+Read data
+
+```{r}
+suppressMessages(require(readxl))
+df = read_xlsx('proposal/Data/Pumpkin_Seeds_Dataset.xlsx')
+```
+
+Distribution of features
+
+```{r}
+suppressMessages(require(ggplot2))
+suppressMessages(require(dplyr))
+```
+
+```{r}
+df$Class <- factor(df$Class)
+```
+
+```{r}
+features = colnames(df |> select(-"Class"))
+```
+
+```{r}
+for (feat in features) {
+  plot <- df |> ggplot(aes(x=.data[[feat]], fill=Class)) +
+    geom_histogram(bins = 30,position = "identity", alpha=0.8) 
+  print(plot)
+}
+```
+
+```{r}
+summary(df$Class)
+```
+
+### Summary:
+
+-   The observed pumpkin seed classes are nearly balanced
+-   All feature values are positive; the distributions are unimodal
+-   Except for "Eccentricity", "Solidity", "Extent", the rest all symmetric
+-   Generally, the feature values spread wider for "Ürgüp Sivrisi"
+-   The disrtibutions of features are shifted between classes.
+
+## preprocessing
+
+The data size is 2500. To evaluate the prediction accuracy, we split the data set into train and test data first, we will do regression on the train data; compare the predictions on the test data
+```{r}
+# For the implementation of stan, we convert Class into integers;
+# 0 for Çerçevelik
+# 1 for Ürgüp Sivrisi
+df$Class = as.integer(df$Class)-1
+```
+
+```{r}
+set.seed(123)
+trainIndex <- sample(seq_len(nrow(df)), size = 0.8 * nrow(df))
+df_train <- df[trainIndex, ]
+df_test <- df[-trainIndex, ]
+
+dim(df_train)
+dim(df_test)
+```
+
+## Baysian logistic regression with normal priors
+
+From EDA, the spread of each features are different, so we choose different priors on standard deviation for features. We use hierarhical model.
+
+```{stan output.var = "normal"}
+data {
+  int N;
+  array[N] int y;
+  vector<lower=0>[N] Area;
+  vector<lower=0>[N] Perimeter;
+  vector<lower=0>[N] Major_Ax;
+  vector<lower=0>[N] Minor_Ax;
+  vector<lower=0>[N] Convex;
+  vector<lower=0>[N] Diameter;
+  vector<lower=0>[N] Ecc;
+  vector<lower=0>[N] Solid;
+  vector<lower=0>[N] Extent;
+  vector<lower=0>[N] Round;
+  vector<lower=0>[N] Aspect;
+  vector<lower=0>[N] Compact;
+}
+
+```
+
