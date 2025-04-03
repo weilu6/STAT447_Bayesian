@@ -70,9 +70,17 @@ dim(df_test)
 ```
 
 ## Baysian logistic regression with normal priors
+Run MCMC
+```{r}
+suppressMessages(require(rstan))
+```
+```{r}
+options(mc.cores=parallel::detectCores())
+```
 
 From EDA, the spread of each features are different, so we choose different priors on standard deviation for features. We use hierarhical model.
-
+#### stan normal with prediction
+slow mixing
 ```{stan output.var = "normal"}
 data {
   int N;
@@ -171,7 +179,8 @@ generated quantities {
 
 
 ```
-stan with matrix
+#### stan with matrix with prediction
+slow mixing, mis-specified
 ```{stan output.var = "normal_matrix"}
 data {
   int N; # number of train data
@@ -201,6 +210,55 @@ generated quantities {
 
 
 ```
+
+#### stan with matrix without prediction
+accelarate the MCMC
+```{stan output.var = "normal_withoutpred"}
+data {
+  int N; # number of train data
+  int K; # number of features
+  array[N] int y; # label of train
+  matrix[N, K] X; # train features
+
+}
+
+parameters {
+  vector[K] thetas; # coeffs for features
+  real intercept;
+}
+
+model {
+  for (i in 1:K) {
+  thetas[i] ~ normal(0, 10);
+}
+  intercept ~ normal(0, 10);
+  
+  y ~ bernoulli_logit(intercept + X * thetas);
+}
+```
+input the matrix
+```{r}
+input_matrix = list(
+  N = 2000,
+  K=12,
+  y=df_train$Class,
+  X = as.matrix(select(df_train, -Class))
+)
+```
+
+```{r include=FALSE}
+fit_without_pred <- sampling(
+  normal_withoutpred,
+  data = input_matrix,
+  chains = 2,
+  iter = 10000,
+  seed=1469,
+  warmup=2000)
+```
+
+still not mix well, Rhat large, probably need to rescale features?
+
+
 
 
 
@@ -280,10 +338,6 @@ input_matrix = list(
 )
 ```
 
-Run MCMC
-```{r}
-suppressMessages(require(rstan))
-```
 
 ```{r include=FALSE}
 fit_normal <- sampling(
@@ -323,4 +377,19 @@ hist(posterior_samples$thetas[,1])
 ```{r}
 plot(posterior_samples$thetas[,5], type="o")
 ```
+
+## explore frequentist logistic regression
+```{r}
+lr = glm(Class~., family = 'binomial', df_train)
+summary(lr)
+```
+```{r}
+X_test = select(df_test, -Class)
+y_pred = predict(lr, X_test, type = "response")
+```
+prediction accuracy
+```{r}
+mean(round(y_pred)==df_test$Class)
+```
+
 
