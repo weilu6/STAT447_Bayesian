@@ -69,6 +69,16 @@ dim(df_train)
 dim(df_test)
 ```
 
+Scaled features data
+```{r}
+X_train_scale <- scale(select(df_train, -Class))
+X_test_scale <- scale(select(df_test, -Class))
+```
+
+
+
+
+
 ## Baysian logistic regression with normal priors
 Run MCMC
 ```{r}
@@ -78,107 +88,8 @@ suppressMessages(require(rstan))
 options(mc.cores=parallel::detectCores())
 ```
 
-From EDA, the spread of each features are different, so we choose different priors on standard deviation for features. We use hierarhical model.
-#### stan normal with prediction
-slow mixing
-```{stan output.var = "normal"}
-data {
-  int N;
-  int M;
-  array[N] int y;
-  vector<lower=0>[N] Area;
-  vector<lower=0>[N] Perimeter;
-  vector<lower=0>[N] Major_Ax;
-  vector<lower=0>[N] Minor_Ax;
-  vector<lower=0>[N] Convex;
-  vector<lower=0>[N] Diameter;
-  vector<lower=0>[N] Ecc;
-  vector<lower=0>[N] Solid;
-  vector<lower=0>[N] Extent;
-  vector<lower=0>[N] Round;
-  vector<lower=0>[N] Aspect;
-  vector<lower=0>[N] Compact;
-  vector<lower=0>[M] Area_test;
-  vector<lower=0>[M] Perimeter_test;
-  vector<lower=0>[M] Major_Ax_test;
-  vector<lower=0>[M] Minor_Ax_test;
-  vector<lower=0>[M] Convex_test;
-  vector<lower=0>[M] Diameter_test;
-  vector<lower=0>[M] Ecc_test;
-  vector<lower=0>[M] Solid_test;
-  vector<lower=0>[M] Extent_test;
-  vector<lower=0>[M] Round_test;
-  vector<lower=0>[M] Aspect_test;
-  vector<lower=0>[M] Compact_test;
-}
+From EDA, the spread of each features are different, so we choose different priors on standard deviation for features. We use hierarhical model.(Too long to simulate)
 
-parameters {
-  real Area_coef;
-  real Perimeter_coef;
-  real Major_Ax_coef;
-  real Minor_Ax_coef;
-  real Convex_coef;
-  real Diameter_coef;
-  real Ecc_coef;
-  real Solid_coef;
-  real Extent_coef;
-  real Round_coef;
-  real Aspect_coef;
-  real Compact_coef;
-  real intercept;
-}
-
-model {
-  Area_coef ~ normal(0, 10);
-  Perimeter_coef ~ normal(0, 10);
-  Major_Ax_coef ~ normal(0, 10);
-  Minor_Ax_coef ~ normal(0, 10);
-  Convex_coef ~ normal(0, 10);
-  Diameter_coef ~ normal(0, 10);
-  Ecc_coef ~ normal(0, 10);
-  Solid_coef ~ normal(0, 10);
-  Extent_coef ~ normal(0, 10);
-  Round_coef ~ normal(0, 10);
-  Aspect_coef ~ normal(0, 10);
-  Compact_coef ~ normal(0, 10);
-  intercept ~ normal(0, 10);
-  
-  y ~ bernoulli_logit(
-    intercept 
-    + Area_coef * Area
-    + Perimeter_coef * Perimeter
-    + Major_Ax_coef * Major_Ax
-    + Minor_Ax_coef * Minor_Ax
-    + Convex_coef * Convex
-    + Diameter_coef * Diameter
-    + Ecc_coef * Ecc
-    + Solid_coef * Solid
-    + Extent_coef * Extent
-    + Round_coef * Round
-    + Aspect_coef * Aspect
-    + Compact_coef * Compact
-  );
-}
-
-generated quantities {
-  array[M] int pred_y = bernoulli_logit_rng(    
-    intercept 
-    + Area_coef * Area_test
-    + Perimeter_coef * Perimeter_test
-    + Major_Ax_coef * Major_Ax_test
-    + Minor_Ax_coef * Minor_Ax_test
-    + Convex_coef * Convex_test
-    + Diameter_coef * Diameter_test
-    + Ecc_coef * Ecc_test
-    + Solid_coef * Solid_test
-    + Extent_coef * Extent_test
-    + Round_coef * Round_test
-    + Aspect_coef * Aspect_test
-    + Compact_coef * Compact_test);
-}
-
-
-```
 #### stan with matrix with prediction
 slow mixing, mis-specified
 ```{stan output.var = "normal_matrix"}
@@ -242,7 +153,8 @@ input_matrix = list(
   N = 2000,
   K=12,
   y=df_train$Class,
-  X = as.matrix(select(df_train, -Class))
+  # X = as.matrix(select(df_train, -Class)) # original features
+  X = X_train_scale # scaled features
 )
 ```
 
@@ -258,125 +170,61 @@ fit_without_pred <- sampling(
 
 still not mix well, Rhat large, probably need to rescale features?
 
-
-
-
-
-backup
 ```{r}
-  Area_sd ~ exponential(1); # seems too large
-  Perimeter_sd ~ exponential(1);
-  Major_Ax_sd ~ exponential(1);
-  Minor_Ax_sd ~ exponential(1);
-  Convex_sd ~ exponential(1); #seems too large
-  Diameter_sd ~ exponential(1); 
-  Ecc_sd ~ exponential(1);
-  Solid_sd ~ exponential(1);
-  Extent_sd ~ exponential(1);
-  Round_sd ~ exponential(1);
-  Aspect_sd ~ exponential(1);
-  Compact_sd ~ exponential(1);
-  intercept_sd ~ exponential(1);
-  real<lower=0.1> Area_sd;
-  real<lower=0.1> Perimeter_sd;
-  real<lower=0.1> Major_Ax_sd;
-  real<lower=0.1> Minor_Ax_sd;
-  real<lower=0.1> Convex_sd;
-  real<lower=0.1> Diameter_sd;
-  real<lower=0.1> Ecc_sd;
-  real<lower=0.1> Solid_sd;
-  real<lower=0.1> Extent_sd;
-  real<lower=0.1> Round_sd;
-  real<lower=0.1> Aspect_sd;
-  real<lower=0.1> Compact_sd;
-  real<lower=0.1> intercept_sd;
+# visualize traceplot
+traceplot(fit_without_pred, par="thetas")
 ```
 
-
-
-input data
-```{r}
-data_input_list = list(
-  N = 2000,
-  M = 500,
-  y = df_train$Class,
-  Area = df_train$Area,
-  Perimeter = df_train$Perimeter,
-  Major_Ax = df_train$Major_Axis_Length,
-  Minor_Ax = df_train$Minor_Axis_Length,
-  Convex = df_train$Convex_Area,
-  Diameter = df_train$Equiv_Diameter,
-  Ecc = df_train$Eccentricity,
-  Solid = df_train$Solidity,
-  Extent = df_train$Extent,
-  Round = df_train$Roundness,
-  Aspect = df_train$Aspect_Ration,
-  Compact = df_train$Compactness,
-  Area_test = df_test$Area,
-  Perimeter_test = df_test$Perimeter,
-  Major_Ax_test = df_test$Major_Axis_Length,
-  Minor_Ax_test = df_test$Minor_Axis_Length,
-  Convex_test = df_test$Convex_Area,
-  Diameter_test = df_test$Equiv_Diameter,
-  Ecc_test = df_test$Eccentricity,
-  Solid_test = df_test$Solidity,
-  Extent_test = df_test$Extent,
-  Round_test = df_test$Roundness,
-  Aspect_test = df_test$Aspect_Ration,
-  Compact_test = df_test$Compactness
-)
-```
-input_matrix
-```{r}
-input_matrix = list(
-  N = 2000,
-  M=500,
-  K=12,
-  y=df_train$Class,
-  X = as.matrix(select(df_train, -Class)),
-  X_test = as.matrix(select(df_test, -Class))
-)
-```
-
-
-```{r include=FALSE}
-fit_normal <- sampling(
-  normal,
-  data = data_input_list,
-  chains = 1,
-  iter = 1000
-)
-```
 
 ```{r}
-posterior_samples <- extract(fit_normal)
-predictions <- posterior_samples$pred_y  
-final_predictions <- apply(predictions, 2, function(x) round(mean(x)))
-mean(final_predictions == df_test$Class)
+samples = extract(fit_without_pred)
+posterior_Area = samples$thetas[,1]
+plot(posterior_Area, type="o")
+hist(posterior_Area)
 ```
 
-```{r include=FALSE}
-fit_normal_matrix <- sampling(
-  normal_matrix,
-  data = input_matrix,
-  chains = 1,
-  iter = 5000)
-```
+
+What if we scale the features in preprocessing? If the values of coefficients are extreme, MCMC may not reach them in limited time.
+
+After scaling the features, the slow-mixing seems to be addressed
 
 ```{r}
-posterior_samples <- extract(fit_normal_matrix)
-predictions <- posterior_samples$pred_y  
-final_predictions <- apply(predictions, 2, function(x) round(mean(x)))
-mean(final_predictions == df_test$Class)
+print(fit_without_pred)
 ```
+Then we use the posterior mean of the coefficients to make the predictions on the test data (scaled)
 
 ```{r}
-hist(posterior_samples$thetas[,1])
+suppressMessages(require(boot))
+fit_summary = summary(fit_without_pred)
+coeffs = fit_summary$summary[1:13,"mean"]
+X_test_scale_1 = cbind(X_test_scale, intercept=1)
+y_pred = round(inv.logit(X_test_scale_1 %*% coeffs))
 ```
+accuracy
+```{r}
+mean(y_pred == df_test$Class)
+```
+slightly better than frequentist lr. 
+
+Let's visualize the 95% credible intervals
+```{r}
+suppressMessages(require(bayesplot))
+thetas_name = c()
+for (i in 1:12) {
+  thetas_name[i] <- paste0("thetas[",i,"]")
+}
+mcmc_intervals(fit_without_pred, pars=c(thetas_name,"intercept"),prob = 0.95)
+```
+The credible interval of `Convex_Area` contains 0, while the CI from lr doesn't. The rest are similar (slightly different).
+
+
 
 ```{r}
-plot(posterior_samples$thetas[,5], type="o")
+mcmc_trace(fit_without_pred, pars=c(thetas_name,"intercept"))
 ```
+
+
+
 
 ## explore frequentist logistic regression
 ```{r}
@@ -391,5 +239,13 @@ prediction accuracy
 ```{r}
 mean(round(y_pred)==df_test$Class)
 ```
+
+Baseline- the most frequent label
+```{r}
+1-mean(df_test$Class)
+```
+
+### Spike-and-slab
+from previous, we find many CIs contains 0, can we perform feature selections?
 
 
