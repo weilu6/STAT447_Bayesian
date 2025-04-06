@@ -248,4 +248,97 @@ Baseline- the most frequent label
 ### Spike-and-slab
 from previous, we find many CIs contains 0, can we perform feature selections?
 
+```{stan output.var = "sas"}
+
+data {
+  int N; # number of train data
+  int K; # number of features
+  array[N] int y; # label of train
+  matrix[N, K] X; # train features
+  real v_1; #tune the shrinkage
+  real v_0; 
+}
+
+
+parameters {
+  vector[K] betas;
+  real<lower=0> sigma_squared;
+  #vector[K] gamma;
+  vector<lower=0, upper=1>[K] ps; #probability to generate 0 or 1 for gamma
+  #vector[K] as;
+}
+
+transformed parameters {
+  #vector[K] as = (1-gamma)*0.01 + gamma * v_1;
+  real<lower=0> sigma = sqrt(sigma_squared);
+  vector[K] as;
+  for (i in 1:K) {
+    as[i] = ps[i]*v_1 + (1-ps[i])*v_0;
+}
+
+}
+
+model {
+  ps ~ beta(1, 1); #tried beta =k
+  #gamma ~ bernoulli(theta);
+  sigma_squared ~ inv_gamma(0.5,0.5);
+  betas ~ normal(0, sigma*as);
+  y ~ bernoulli_logit(X * betas);
+}
+```
+
+```{r}
+input_sas = list(
+  N = 2000,
+  K=12,
+  y=df_train$Class,
+  X = X_train_scale, # scaled features
+  v_1= 1,
+  v_0=0.0001
+)
+```
+
+```{r include=FALSE}
+fit_sas <- sampling(
+  sas,
+  data = input_sas,
+  chains = 2,
+  iter = 10000,
+  seed=1469,
+  warmup=2000)
+```
+
+```{r}
+suppressMessages(require(bayesplot))
+betas_name = c()
+for (i in 1:12) {
+  betas_name[i] <- paste0("betas[",i,"]")
+}
+mcmc_intervals(fit_sas, pars=betas_name, prob = 0.95, prob_outer = 0.99)
+```
+
+```{r}
+p_name = c()
+for (i in 1:12) {
+  p_name[i] <- paste0("ps[",i,"]")
+}
+mcmc_intervals(fit_sas, pars=p_name, prob = 0.95, prob_outer = 0.99)
+```
+```{r}
+mcmc_trace(fit_sas, pars=betas_name)
+```
+
+```{r}
+mcmc_trace(fit_sas, pars=p_name)
+```
+
+
+```{r}
+suppressMessages(require(boot))
+fit_sas_summary = summary(fit_sas)
+coeffs_sas = fit_sas_summary$summary[1:12,"mean"]
+y_pred = round(inv.logit(X_test_scale %*% coeffs_sas))
+mean(y_pred == df_test$Class)
+```
+
 
