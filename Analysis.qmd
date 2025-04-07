@@ -331,6 +331,10 @@ mcmc_trace(fit_sas, pars=betas_name)
 ```{r}
 mcmc_trace(fit_sas, pars=p_name)
 ```
+histogram
+```{r}
+mcmc_hist(fit_sas, betas_name)
+```
 
 
 ```{r}
@@ -341,4 +345,48 @@ y_pred = round(inv.logit(X_test_scale %*% coeffs_sas))
 mean(y_pred == df_test$Class)
 ```
 
+We try to use the MCMC samples of coefficients in each iteration to get a sample for prediction by extracting samples.
+```{r}
+sas_samples <- extract(fit_sas)
+```
+betas
+```{r}
+beta_samples <- as.matrix(sas_samples$betas)
+```
+compute prediction via matrix operation
+```{r}
+prediction_original <- beta_samples %*% t(X_test_scale)
+# 16000 rows, 500 cols, for each row we compute the prediction and accuracy
+```
+```{r}
+prediction_boolean <- round(inv.logit(prediction_original))
+```
+defn accuracy fcn
+```{r}
+accuracy <- function(pred) {
+  mean(pred == df_test$Class)
+}
+```
 
+```{r}
+accuracy_per_iter <- apply(prediction_boolean, MARGIN = 1, accuracy)
+```
+
+```{r}
+max(accuracy_per_iter)
+```
+```{r}
+min(accuracy_per_iter)
+```
+```{r}
+plot(accuracy_per_iter[10000:16000], type='l')
+```
+```{r}
+summary(accuracy_per_iter)
+```
+```{r}
+quantile(accuracy_per_iter, c(0.05,0.95))
+```
+## diagnostic
+
+## comparison
