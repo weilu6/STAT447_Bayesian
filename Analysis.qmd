@@ -182,6 +182,9 @@ posterior_Area = samples$thetas[,1]
 plot(posterior_Area, type="o")
 hist(posterior_Area)
 ```
+```{r}
+mcmc_areas(fit_without_pred, par= "thetas[9]")
+```
 
 
 What if we scale the features in preprocessing? If the values of coefficients are extreme, MCMC may not reach them in limited time.
@@ -294,7 +297,7 @@ input_sas = list(
   y=df_train$Class,
   X = X_train_scale, # scaled features
   v_1= 1,
-  v_0=0.0001
+  v_0=0.01
 )
 ```
 
@@ -387,6 +390,161 @@ summary(accuracy_per_iter)
 ```{r}
 quantile(accuracy_per_iter, c(0.05,0.95))
 ```
+
+
+
+
+### laplace prior on the spike
+
+We do observe a "little spike" and we want to make the selection effect stronger. Considering a laplace prior on the spike
+```{stan output.var = "sas_laplace"}
+
+data {
+  int N; # number of train data
+  int K; # number of features
+  array[N] int y; # label of train
+  matrix[N, K] X; # train features
+  real v_1; #control slab
+}
+
+
+parameters {
+  vector[K] slabs; #heavy tail normal
+  vector<lower=0>[K] sigma_squared; #variance for each beta
+  vector[K] spike; #laplace
+  #vector[K] gamma;
+  vector<lower=0, upper=1>[K] ps; #probability to generate 0 or 1 for gamma
+  #vector[K] as;
+}
+
+transformed parameters {
+  #vector[K] as = (1-gamma)*0.01 + gamma * v_1;
+  vector<lower=0>[K] sigma = sqrt(sigma_squared);
+  vector[K] betas;
+  for (i in 1:K) {
+    betas[i] = ps[i]*slabs[i] + (1-ps[i])*spike[i]; #mixture
+}
+
+}
+
+model {
+  ps ~ beta(1, 1); #tried beta =k
+  #gamma ~ bernoulli(theta);
+  sigma_squared ~ inv_gamma(0.5,0.5);
+  for (i in 1:K) {
+    spike[i] ~ double_exponential(0, sigma[i]);
+    slabs[i] ~ normal(0, v_1*sigma[i]);
+}
+  y ~ bernoulli_logit(X * betas);
+}
+```
+
+
+```{r}
+input_laplace = list(
+  N = 2000,
+  K=12,
+  y=df_train$Class,
+  X = X_train_scale, # scaled features
+  v_1=20
+)
+```
+
+```{r include=FALSE}
+fit_laplace <- sampling(
+  sas_laplace,
+  data = input_laplace,
+  chains = 2,
+  iter = 10000,
+  seed=1469,
+  warmup=2000)
+```
+
+```{r}
+mcmc_trace(fit_laplace, pars=betas_name)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## diagnostic
+### simulated data check - model specification
+since the "spike" is not obvious enough, we add a simulated unrelated feature `random_feat` to the data, and we expect to see a spike posterior distribution.
+```{r}
+# create normal(0,1) feature with seed 213
+set.seed(213)
+X_simulate <- cbind(X_train_scale, random_feat=rnorm(2000))
+```
+fit the simulated feature with rstan
+```{r}
+input_simulate <- list(
+  N = 2000,
+  K=13,
+  y=df_train$Class,
+  X = X_simulate, # added random features
+  v_1= 1,
+  v_0=0.0001
+)
+```
+mcmc
+```{r include=FALSE}
+fit_simulate <- sampling(
+  sas,
+  data = input_simulate,
+  chains = 2,
+  iter = 10000,
+  seed=1469,
+  warmup=2000)
+```
+result
+```{r}
+mcmc_areas(fit_simulate, par=c("betas[6]","betas[13]"))
+```
+We choose `Equiv_Diameter` and the `random_feat` to compare, we see the posterior of the `random_feat` is very "spiky" centered at 0, which implies the spike-and-slab prior does work to shrink irrelevant features to 0.
 
 ## comparison
+
+```{r}
+mcmc_areas(fit_without_pred, par= thetas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95)
+```
+```{r}
+mcmc_areas(fit_sas, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
+  xlim(-40,20)
+```
+```{r}
+mcmc_areas(fit_laplace, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
+  xlim(-40,20)
+```
+
+
+
+
+```{r}
+mcmc_areas(fit_simulate, par= "betas[13]")
+```
+
+
+```{r}
+mcmc_areas(fit_sas, par= c(p_name))
+```
+```{r}
+# explore normal and laplace
+suppressMessages(require(extraDistr))
+distr_prior <- data.frame(data=c(rnorm(2000,sd=0.01),rlaplace(2000,sigma = 0.01)),
+                          name=factor(c(rep("normal",2000),rep("laplace",2000))))
+
+ggplot(distr_prior,aes(x=data, fill=name)) +
+  geom_histogram(bins=100) 
+```
+
+
