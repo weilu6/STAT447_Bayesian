@@ -391,6 +391,77 @@ summary(accuracy_per_iter)
 quantile(accuracy_per_iter, c(0.05,0.95))
 ```
 
+### re-implement spike and slab
+```{stan output.var = "sas_redo"}
+
+data {
+  int N; # number of train data
+  int K; # number of features
+  array[N] int y; # label of train
+  matrix[N, K] X; # train features
+  real v_1; #control slab
+}
+
+
+parameters {
+  real<lower=0> sigma_squared; #normal variance
+  vector<lower=0>[K] tau_squared; #variance for each beta
+  vector<lower=0.01, upper=1>[K] ps; #probability to generate 0 or 1 for gamma
+  #vector[K] as; #spike and slab component
+  vector[K] betas; #coeffs
+}
+
+transformed parameters {
+  real<lower=0> sigma = sqrt(sigma_squared);
+  vector<lower=0>[K] tau = sqrt(tau_squared);
+}
+
+model {
+  ps ~ beta(1, 1);
+  sigma_squared ~ inv_gamma(0.5,0.5);
+  tau_squared ~ gamma(2,1);
+  #Blackwellization over Bernoulli
+  for (i in 1:K) {
+    target += log_sum_exp(
+    log(ps[i])+gamma_lpdf(tau_squared[i]|2,1)+normal_lpdf(betas[i]|0,v_1*tau[i]*sigma),
+    log(1-ps[i])+normal_lpdf(betas[i]|0,sigma));
+}
+  y ~ bernoulli_logit(X * betas);
+}
+```
+
+
+```{r}
+input_sas_redo = list(
+  N = 2000,
+  K=12,
+  y=df_train$Class,
+  X = X_train_scale, # scaled features
+  v_1= 15
+)
+```
+
+```{r include=FALSE}
+fit_sas_redo <- sampling(
+  sas_redo,
+  data = input_sas_redo,
+  chains = 2,
+  iter = 10000,
+  seed=1469,
+  warmup=2000)
+```
+
+```{r}
+mcmc_trace(fit_sas_redo, pars=betas_name)
+mcmc_areas(fit_sas_redo, pars=betas_name)
+```
+
+
+
+
+
+
+
 
 
 
@@ -517,13 +588,35 @@ We choose `Equiv_Diameter` and the `random_feat` to compare, we see the posterio
 ```{r}
 mcmc_areas(fit_without_pred, par= thetas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95)
 ```
-```{r}
-mcmc_areas(fit_sas, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
-  xlim(-40,20)
+```{r, message=FALSE}
+suppressWarnings(
+  print(mcmc_areas(fit_sas, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
+  scale_x_continuous(limits = c(-40, 20)))
+)
+suppressWarnings(
+  print(mcmc_areas(fit_sas_redo, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
+  xlim(-40,20))
+)
+
+suppressWarnings(
+  print(mcmc_areas(fit_laplace, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
+  xlim(-40,20))
+)
+
 ```
+Try use less features to do "rough" prediction
 ```{r}
-mcmc_areas(fit_laplace, par= betas_name[-c(8,9)], prob = 0.5, prob_outer = 0.95) +
-  xlim(-40,20)
+fit_sas_redo_sum = summary(fit_sas_redo)
+coeffs_sas_redo = fit_sas_redo_sum$summary[26:37,"mean"]
+# set some coeffs to 0 from the spikes
+coeffs_sas_redo[c(2,3,5,9,10)] = 0
+mean(round(inv.logit(X_test_scale %*% coeffs_sas_redo)) == df_test$Class)
+```
+
+
+
+```{r}
+mcmc_areas(fit_sas_redo, par= betas_name[11], prob = 0.5, prob_outer = 0.95)
 ```
 
 
@@ -547,4 +640,7 @@ ggplot(distr_prior,aes(x=data, fill=name)) +
   geom_histogram(bins=100) 
 ```
 
+### predictive check 
 
+
+### summary
