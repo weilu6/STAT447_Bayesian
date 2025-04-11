@@ -1,0 +1,411 @@
+---
+title: "Logstic regression with spike-and-slab priors"
+author: "Wei"
+format: html
+editor: visual
+---
+
+## Introduction
+
+#### theme: Comparison between Bayesian classification models
+
+Compare the logistic regression with normal priors and logistic regression with spike-and-slab priors.
+
+### Backgrounds:
+
+Pumpkin seeds are rich in nutrients, and they are widely consumed around the world. The effective classification models of pumpkin seeds will benefit agricultural industries and further help the agricultural studies. The dataset contains two types of pumpkins seeds (Çerçevelik and Ürgüp Sivrisi) and their morphological features, which are extracted from images. Previous studies applied machine learning methods and achieved accuracy rates about 87% \[ref1: Koklu et. al. (2021)\]. In this project, the classification problem is approached with Bayesian methods. The aim is to investigate the performance of two Bayesian models and the feature selection via spike and slab priors.
+
+### Literature review:
+
+George and McCulloch (1993) studied the selection of variables with hierarchical mixture models. The idea is to set larger variance to the non-zero coefficient of features and smaller variance to zero coefficients. Consequently, the zero coefficients have "spike-like" posterior distributions and non-zero ones have wider disrtibutions. Ishwaran and Rao (2005) further modified the model with continuous priors and the rescaling method to perform variable selecture on higher dimensional problems. Since the pumpkin seeds dataset has 12 features, the classical discrete prior model is used. To address the classification problem in the project, the classical continuous response model is modified with a logistic link function.
+
+## Data Analysis
+
+### EDA
+
+The prior information is important in Bayesian inference, so the exploratory analysis is performed. The pumpkin seed classes are nearly balanced, so the baseline accuracy is 52% by a dummy classifier. From the comparative distribution \[figure1-comparative-distribution\], the distributions are unimodal and symmetric for most features, except for "Eccentricity", "Solidity", "Extent". From the preliminary analysis, `Major_Axis_Length`, `Eccentricity`,`Roundness`,`Aspect_Ration`,`Compactness` are key features to classify the seeds.
+
+#### EDA code
+
+```{r}
+suppressMessages(require(readxl))
+suppressMessages(require(ggplot2))
+suppressMessages(require(dplyr))
+suppressMessages(require(rstan))
+suppressMessages(require(boot))
+suppressMessages(require(bayesplot))
+options(mc.cores=parallel::detectCores())
+```
+
+```{r}
+df = read_xlsx('proposal/Data/Pumpkin_Seeds_Dataset.xlsx')
+df$Class <- factor(df$Class)
+features = colnames(df |> select(-"Class"))
+```
+
+```{r warning=FALSE}
+# Firgure 1
+plot_list = list()
+for (feat in features) {
+  plot <- df |> ggplot(aes(x=.data[[feat]], fill=Class)) +
+    geom_histogram(bins = 30,position = "identity", alpha=0.8)
+  plot_list[[feat]] <- plot
+  print(plot)
+}
+```
+
+```{r}
+summary(df$Class)
+```
+
+### Prepocessing
+
+To evaluate the prediction accuracy, the dataset is splited into train data (80%) and test data (20%), which is commonly used in data science. In particular, regressions are performed on the train data and the evaluations are performed on the test data. In addition, we standardized the morphological features (ref3, 2005). The different range of values caused slow-mixing issues in the early MCMC attempts.
+
+#### Preprocessing code
+
+```{r}
+# For the implementation of stan, we convert Class into integers;
+# 0 for Çerçevelik
+# 1 for Ürgüp Sivrisi
+df$Class = as.integer(df$Class)-1
+
+# split the dataset into training and testing, with seed 123
+set.seed(123)
+trainIndex <- sample(seq_len(nrow(df)), size = 0.8 * nrow(df))
+df_train <- df[trainIndex, ]
+df_test <- df[-trainIndex, ]
+
+dim(df_train)
+dim(df_test)
+
+# obtain standardized features
+X_train_scale <- scale(select(df_train, -Class))
+X_test_scale <- scale(select(df_test, -Class))
+```
+```{r}
+1-mean(df_train$Class)
+1-mean(df_test$Class)
+```
+
+### MCMC
+
+#### normal prior
+
+The first model is the simple Bayesian logistic regression model as the follows: 
+$$
+\beta_i \stackrel{i.i.d}\sim {\cal N}(0,10) \quad \text{ for } i=1,2,\cdots,12\\
+\theta_j = \text{logistic}(A_j\underline\beta) \\
+y_j \sim \text{Bern}(\theta_j)\\
+\text{ where } A_j \text{ is the features of jth data, } \underline\beta = (\beta_1,\cdots,\beta_{12})
+$$
+
+#### spike-and-slab prior
+The second model is a modified logstic model with a spike-and-slab componenent (ref3) and hierarchical designs: 
+$$
+\sigma^2 \sim \text{InverseGamma}(\frac12,\frac12)\\
+\tau_i^2 \sim \text{Gamma}(2,1)\\
+p_i \sim \text{Beta}(1,1)\\
+\gamma_i|p_i \sim \text{Bern}(p_i)\\
+a_i|\gamma_i,p_i,\sigma^2,\tau_i^2,v_i = \gamma_i(v_1\sigma\tau_i) + (1-\gamma_i)\sigma\\
+\beta_i|a_i \stackrel{i.i.d}\sim {\cal N}(0,a_i) \quad \text{ for } i=1,2,\cdots,12\\
+y_j \sim \text{Bern}(\text{logistic}(A_j\underline\beta))\\
+\text{ where } A_j \text{ is the features of jth data, } \underline\beta = (\beta_1,\cdots,\beta_{12})
+$$ 
+The $a_i$ is a mixture of "spike" and "slab". It provides a smaller variance for $\beta_i$ when it is likely to be 0, and a large variance for non-zero $\beta_i$. The hyperparameter $v_i$ is given manually to control the "width of the slab". According to (ref 2), the zero-valued $\beta_i$ is expected to be spike centered at 0, and non-zero $\beta_i$ is spread with large value.
+
+Note that $\gamma_i$ acts as an indicator function with discrete supports, Rao-Blackwellization is needed to performed for the implementation of stan. It follows that 
+$$
+\gamma(\beta_i,p_i,\tau_i,\sigma)=\sum_{\gamma_i=0}^1 \gamma(\beta_i,\gamma_i,p_i,\tau_i,\sigma) \\
+=f_{IG}(\sigma^2;\frac12,\frac12)f_{Gamma}(\tau_i^2;2,1)f_{Beta}(p_i;1,1)\left[p_i\gamma_{Norm}(\beta_i;0,v_1\sigma\tau_i) + (1-p_i)\gamma_{Norm}(\beta_i;0,\sigma)\right]
+$$
+
+#### mcmc code
+1. stan codes - normal
+```{stan output.var = "normal"}
+data {
+  int N; # number of train data
+  int K; # number of features
+  array[N] int y; # label of train
+  matrix[N, K] X; # train features
+
+}
+
+parameters {
+  vector[K] betas; # coefficients for features
+}
+
+model {
+  betas ~ normal(0, 10);
+  y ~ bernoulli_logit(X * betas);
+}
+```
+2. stan codes - spike and slab
+```{stan output.var = "sas"}
+data {
+  int N; # number of train data
+  int K; # number of features
+  array[N] int y; # label of train
+  matrix[N, K] X; # train features
+  real v_1; #control slab
+}
+
+
+parameters {
+  real<lower=0> sigma_squared; # normal variance
+  vector<lower=0>[K] tau_squared; #v ariance for each beta
+  vector<lower=0.01, upper=1>[K] ps; # probability to generate 0 or 1 for indicators
+  #vector[K] as; spike and slab component, no more needed since Blackwellization
+  vector[K] betas; # coefficients
+}
+
+transformed parameters {
+  real<lower=0> sigma = sqrt(sigma_squared); # for normal implementation, need std
+  vector<lower=0>[K] tau = sqrt(tau_squared);
+}
+
+model {
+  ps ~ beta(1, 1); # prior for p_i
+  sigma_squared ~ inv_gamma(0.5,0.5); # prior for sigma
+  tau_squared ~ gamma(2,1); # prior for tau
+  #Blackwellization over Bernoulli
+  for (i in 1:K) {
+    target += log_sum_exp(
+    log(ps[i])+gamma_lpdf(tau_squared[i]|2,1)+normal_lpdf(betas[i]|0,v_1*tau[i]*sigma),
+    log(1-ps[i])+normal_lpdf(betas[i]|0,sigma));
+}
+  y ~ bernoulli_logit(X * betas);
+}
+```
+3. fit-inputs
+```{r}
+input_normal = list(
+  N = 2000,
+  K=12,
+  y=df_train$Class,
+  X = X_train_scale # scaled features
+)
+
+input_sas = list(
+  N = 2000,
+  K=12,
+  y=df_train$Class,
+  X = X_train_scale, # scaled features
+  v_1= 15 # chosen by hand
+)
+```
+4. run-MCMC
+```{r include=FALSE}
+fit_normal <- sampling(
+  normal,
+  data = input_normal,
+  chains = 2,
+  iter = 10000,
+  seed=1469, # chosen randomly
+  warmup=5000,
+  control = list(max_treedepth = 15))
+```
+Takes about 210s for each chain.
+
+```{r include=FALSE}
+fit_sas <- sampling(
+  sas,
+  data = input_sas,
+  chains = 2,
+  iter = 10000,
+  seed=1469,
+  warmup=5000,
+  control = list(max_treedepth = 15))
+```
+325,432s for each chain
+
+### Diagnosis
+
+#### fast mixing
+1-traceplots
+
+```{r}
+# helper function
+betas_name = c()
+for (i in 1:12) {
+  betas_name[i] <- paste0("betas[",i,"]")
+}
+```
+
+```{r}
+#trace plot for normal model
+mcmc_trace(fit_normal, pars=betas_name)
+#trace plot for spike-and-slab model
+mcmc_trace(fit_sas, pars=betas_name)
+```
+2 - rank plots
+```{r}
+for (i in 1:12) {
+  #trace plot for normal model
+  print(mcmc_rank_hist(fit_normal, pars=betas_name[i]))
+  #trace plot for spike-and-slab model
+  print(mcmc_rank_hist(fit_sas, pars=betas_name[i]))
+}
+```
+From the traceplots and the rank plots, both MCMC are fast-mixing. The traceplots are undistinguishable between two chains, and the rank plots are nearly uniform.
+
+#### Goodness-of-fit
+
+It is difficult to perform posterior predictive check on the binary data, since the credible set only contains 0 and 1. Gelman et al. (2000) provide some posterior check methods for discrete regressions (ref4). The simple checks for mean and standard deviation are performed. The Predictions are generated by the MCMC coefficients. The mean value and the standard deviation of the true data (brown dashed lines) fall within the 99% credible intervals(blue dashed lines). In addition, The 95% credible interval of prediction accuracy on the training data of the normal prior model is (81.55%, 84.50%). The interval for spike-and-slab model is (81.40%, 84.45%). Both are much better than the baseline (52.25%) and have similar coverage. Therefore, both models are approximately well-specified.
+
+
+```{r}
+# posterior prediction
+set.seed(1054)
+pred_norm_train <- generate_prediction(X_train_scale, fit_normal)
+pred_sas_train <- generate_prediction(X_train_scale, fit_sas)
+acc_norm_train <- generate_accuracy(X_train_scale, df_train$Class, fit_normal)
+acc_sas_train <- generate_accuracy(X_train_scale, df_train$Class, fit_sas)
+```
+
+```{r}
+# 95% credible intervals for accuracy
+print(quantile(acc_norm_train, c(0.025,0.975)))
+print(quantile(acc_sas_train, c(0.025,0.975)))
+```
+
+
+```{r}
+# check mean and sd
+pred_mean_norm <- apply(pred_norm_train,1,mean)
+pred_mean_sas <- apply(pred_sas_train,1,mean)
+pred_sd_norm <- apply(pred_norm_train,1,sd)
+pred_sd_sas <- apply(pred_sas_train,1,sd)
+df_check <- data.frame(mean_norm = pred_mean_norm,
+                       mean_sas = pred_mean_sas,
+                       sd_norm = pred_sd_norm,
+                       sd_sas = pred_sd_sas)
+
+# visualize
+ggplot(df_check, aes(x=mean_norm)) + 
+  geom_histogram(bins=30,color = "white", alpha=0.8) + 
+  geom_vline(xintercept = mean(df_train$Class), 
+             linetype="dashed", 
+             color = "darkred", size=1.5) +
+  geom_vline(xintercept = quantile(pred_mean_norm, c(0.005,0.995)), 
+             linetype="dashed", 
+             color = "blue", size=1.5) +
+  scale_x_continuous(n.breaks = 10) +
+  xlab("mean value (the proportion of Ürgüp Sivrisi)") +
+  ggtitle("Predictive check of the mean value (normal prior)")
+
+ggplot(df_check, aes(x=mean_sas)) + 
+  geom_histogram(bins=30,color = "white", alpha=0.8) + 
+  geom_vline(xintercept = mean(df_train$Class), 
+             linetype="dashed", 
+             color = "darkred", size=1.5) +
+  geom_vline(xintercept = quantile(pred_mean_sas, c(0.005,0.995)), 
+             linetype="dashed", 
+             color = "blue", size=1.5) +
+  scale_x_continuous(n.breaks = 10) +
+  xlab("mean value (the proportion of Ürgüp Sivrisi)") +
+  ggtitle("Predictive check of the mean value (spike-and-slab prior)")
+
+ggplot(df_check, aes(x=sd_norm)) + 
+  geom_histogram(bins=30,color = "white", alpha=0.8) + 
+  geom_vline(xintercept = sd(df_train$Class), 
+             linetype="dashed", 
+             color = "darkred", size=1.5) +
+  geom_vline(xintercept = quantile(pred_sd_norm, c(0.005,0.995)), 
+             linetype="dashed", 
+             color = "blue", size=1.5) +
+  scale_x_continuous(n.breaks = 10) +
+  xlab("the sample standard deviation") +
+  ggtitle("Predictive check of the sd value (normal prior)")
+
+ggplot(df_check, aes(x=sd_sas)) + 
+  geom_histogram(bins=30,color = "white", alpha=0.8) + 
+  geom_vline(xintercept = sd(df_train$Class), 
+             linetype="dashed", 
+             color = "darkred", size=1.5) +
+  geom_vline(xintercept = quantile(pred_sd_sas, c(0.005,0.995)), 
+             linetype="dashed", 
+             color = "blue", size=1.5) +
+  scale_x_continuous(n.breaks = 10) +
+  xlab("the sample standard deviation") +
+  ggtitle("Predictive check of the sd value (spike-and-slab prior)")
+```
+
+
+
+
+```{r}
+# The train accuracy histogram
+ggplot(data.frame(accuracy=acc_norm_train), aes(x=accuracy)) + 
+  geom_histogram(bins=30,color = "white", alpha=0.8) + 
+  geom_vline(xintercept = mean(acc_norm_train), 
+             linetype="dashed", 
+             color = "orange", size=1.5) +
+  geom_vline(xintercept = quantile(acc_norm_train, c(0.025,0.975)), 
+             linetype="dashed", 
+             color = "blue", size=1.5) +
+  scale_x_continuous(n.breaks = 10) +
+  ggtitle("Histgram for training accuracy of normal prior")
+
+ggplot(data.frame(accuracy=acc_sas_train), aes(x=accuracy)) + 
+  geom_histogram(bins=30,color = "white", alpha=0.8) + 
+  geom_vline(xintercept = mean(acc_sas_train), 
+             linetype="dashed", 
+             color = "orange", size=1.5) +
+  geom_vline(xintercept = quantile(acc_sas_train, c(0.025,0.975)), 
+             linetype="dashed", 
+             color = "blue", size=1.5) +
+  scale_x_continuous(n.breaks = 10) +
+  ggtitle("Histgram for training accuracy of spike-and-slab prior")
+```
+
+
+```{r}
+#helper function to generate predictions with given features and mcmc samples
+generate_prediction <- function(X, fit) {
+  samples <- extract(fit)
+  probs <- inv.logit(samples$betas %*% t(X))[5001:10000,] # predicted probabilities for the latter 5000 iterations
+  y_pred <- matrix(rbinom(n=10^7, size = 1, prob = as.vector(probs)), nrow = 5000)
+  return(y_pred)
+}
+
+#helper function to generate accuracy with given features and mcmc samples
+generate_accuracy <- function(X, y, fit) {
+  y_pred =generate_prediction(X, fit)
+  accuracy = c()
+  for (i in 1:5000) {
+    accuracy = c(accuracy, mean(y_pred[i,]==y))
+  }
+  return(accuracy)
+}
+```
+
+
+### Results
+posterior distrbution
+```{r}
+#posterior plot for normal model
+mcmc_areas(fit_normal, pars=betas_name)
+#posterior plot for spike-and-slab model
+mcmc_areas(fit_sas, pars=betas_name)
+```
+
+- The prediction accuracy on test data.
+- For application, we drop zero-value features, discuss the accuracy
+- Is the spike-and-slab model stable dealing smaller sample size?
+
+### Conclusion and discussion
+
+- Main takeaway
+- application and significance
+- Key limitations
+
+## Reference
+
+\[1\] Koklu, M., Sarigil, S., & Ozbek, O. (2021). The use of machine learning methods in classification of pumpkin seeds (cucurbita pepo L.). Genetic Resources and Crop Evolution, 68(7), 2713-2726. https://doi.org/10.1007/s10722-021-01226-0
+
+\[2\] George, E. I., & McCulloch, R. E. (1993). Variable selection via gibbs sampling. Journal of the American Statistical Association, 88(423), 881-889. https://doi.org/10.1080/01621459.1993.10476353
+
+\[3\] ISHWARAN, H., & RAO, J. S. (2005). Spike and slab variable selection : Frequentist and bayesian strategies. The Annals of Statistics, 33(2), 730-773. https://doi.org/10.1214/009053604000001147
+
+[4] Gelman, A., Goegebeur, Y., Tuerlinckx, F., & Van Mechelen, I. (2000). Diagnostic checks for discrete data regression models using posterior predictive simulations. Applied Statistics, 49(2), 247-268. https://doi.org/10.1111/1467-9876.00190
