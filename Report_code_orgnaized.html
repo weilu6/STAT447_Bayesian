@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Wei">
+
+<title>Logstic regression with spike-and-slab priors</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Report_code_orgnaized_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Report_code_orgnaized_files/libs/quarto-html/quarto.js"></script>
+<script src="Report_code_orgnaized_files/libs/quarto-html/popper.min.js"></script>
+<script src="Report_code_orgnaized_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Report_code_orgnaized_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Report_code_orgnaized_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Report_code_orgnaized_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Report_code_orgnaized_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Report_code_orgnaized_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Report_code_orgnaized_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Logstic regression with spike-and-slab priors</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Wei </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<section id="theme-comparison-between-bayesian-classification-models" class="level4">
+<h4 class="anchored" data-anchor-id="theme-comparison-between-bayesian-classification-models">theme: Comparison between Bayesian classification models</h4>
+<p>Compare the logistic regression with normal priors and logistic regression with spike-and-slab priors.</p>
+</section>
+<section id="backgrounds" class="level3">
+<h3 class="anchored" data-anchor-id="backgrounds">Backgrounds:</h3>
+<p>Pumpkin seeds are rich in nutrients, and they are widely consumed around the world. The effective classification models of pumpkin seeds will benefit agricultural industries and further help the agricultural studies. The dataset contains two types of pumpkins seeds (Çerçevelik and Ürgüp Sivrisi) and their morphological features, which are extracted from images. Previous studies applied machine learning methods and achieved accuracy rates about 87% [ref1: Koklu et. al.&nbsp;(2021)]. In this project, the classification problem is approached with Bayesian methods. The aim is to investigate the performance of two Bayesian models and the feature selection via spike and slab priors.</p>
+</section>
+<section id="literature-review" class="level3">
+<h3 class="anchored" data-anchor-id="literature-review">Literature review:</h3>
+<p>George and McCulloch (1993) studied the selection of variables with hierarchical mixture models. The idea is to set larger variance to the non-zero coefficient of features and smaller variance to zero coefficients. Consequently, the zero coefficients have “spike-like” posterior distributions and non-zero ones have wider disrtibutions. Ishwaran and Rao (2005) further modified the model with continuous priors and the rescaling method to perform variable selecture on higher dimensional problems. Since the pumpkin seeds dataset has 12 features, the classical discrete prior model is used. To address the classification problem in the project, the classical continuous response model is modified with a logistic link function.</p>
+</section>
+</section>
+<section id="data-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="data-analysis">Data Analysis</h2>
+<section id="eda" class="level3">
+<h3 class="anchored" data-anchor-id="eda">EDA</h3>
+<p>The prior information is important in Bayesian inference, so the exploratory analysis is performed. The pumpkin seed classes are nearly balanced, so the baseline accuracy is 52% by a dummy classifier. From the comparative distribution [figure1-comparative-distribution], the distributions are unimodal and symmetric for most features, except for “Eccentricity”, “Solidity”, “Extent”. From the preliminary analysis, <code>Major_Axis_Length</code>, <code>Eccentricity</code>,<code>Roundness</code>,<code>Aspect_Ration</code>,<code>Compactness</code> are key features to classify the seeds.</p>
+<section id="eda-code" class="level4">
+<h4 class="anchored" data-anchor-id="eda-code">EDA code</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressMessages</span>(<span class="fu">require</span>(readxl))</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressMessages</span>(<span class="fu">require</span>(ggplot2))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressMessages</span>(<span class="fu">require</span>(dplyr))</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressMessages</span>(<span class="fu">require</span>(rstan))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressMessages</span>(<span class="fu">require</span>(boot))</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressMessages</span>(<span class="fu">require</span>(bayesplot))</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">mc.cores=</span>parallel<span class="sc">::</span><span class="fu">detectCores</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">=</span> <span class="fu">read_xlsx</span>(<span class="st">'proposal/Data/Pumpkin_Seeds_Dataset.xlsx'</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>Class <span class="ot">&lt;-</span> <span class="fu">factor</span>(df<span class="sc">$</span>Class)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>features <span class="ot">=</span> <span class="fu">colnames</span>(df <span class="sc">|&gt;</span> <span class="fu">select</span>(<span class="sc">-</span><span class="st">"Class"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Firgure 1</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>plot_list <span class="ot">=</span> <span class="fu">list</span>()</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (feat <span class="cf">in</span> features) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  plot <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x=</span>.data[[feat]], <span class="at">fill=</span>Class)) <span class="sc">+</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">30</span>,<span class="at">position =</span> <span class="st">"identity"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  plot_list[[feat]] <span class="ot">&lt;-</span> plot</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(plot)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-3-12.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(df<span class="sc">$</span>Class)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   Çerçevelik Ürgüp Sivrisi 
+         1300          1200 </code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="prepocessing" class="level3">
+<h3 class="anchored" data-anchor-id="prepocessing">Prepocessing</h3>
+<p>To evaluate the prediction accuracy, the dataset is splited into train data (80%) and test data (20%), which is commonly used in data science. In particular, regressions are performed on the train data and the evaluations are performed on the test data. In addition, we standardized the morphological features (ref3, 2005). The different range of values caused slow-mixing issues in the early MCMC attempts.</p>
+<section id="preprocessing-code" class="level4">
+<h4 class="anchored" data-anchor-id="preprocessing-code">Preprocessing code</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># For the implementation of stan, we convert Class into integers;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 0 for Çerçevelik</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 1 for Ürgüp Sivrisi</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>Class <span class="ot">=</span> <span class="fu">as.integer</span>(df<span class="sc">$</span>Class)<span class="sc">-</span><span class="dv">1</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># split the dataset into training and testing, with seed 123</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>trainIndex <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">seq_len</span>(<span class="fu">nrow</span>(df)), <span class="at">size =</span> <span class="fl">0.8</span> <span class="sc">*</span> <span class="fu">nrow</span>(df))</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>df_train <span class="ot">&lt;-</span> df[trainIndex, ]</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>df_test <span class="ot">&lt;-</span> df[<span class="sc">-</span>trainIndex, ]</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(df_train)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2000   13</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(df_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 500  13</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># obtain standardized features</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>X_train_scale <span class="ot">&lt;-</span> <span class="fu">scale</span>(<span class="fu">select</span>(df_train, <span class="sc">-</span>Class))</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>X_test_scale <span class="ot">&lt;-</span> <span class="fu">scale</span>(<span class="fu">select</span>(df_test, <span class="sc">-</span>Class))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span><span class="sc">-</span><span class="fu">mean</span>(df_train<span class="sc">$</span>Class)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.5225</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="dv">1</span><span class="sc">-</span><span class="fu">mean</span>(df_test<span class="sc">$</span>Class)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.51</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="mcmc" class="level3">
+<h3 class="anchored" data-anchor-id="mcmc">MCMC</h3>
+<section id="normal-prior" class="level4">
+<h4 class="anchored" data-anchor-id="normal-prior">normal prior</h4>
+<p>The first model is the simple Bayesian logistic regression model as the follows: <span class="math display">\[
+\beta_i \stackrel{i.i.d}\sim {\cal N}(0,10) \quad \text{ for } i=1,2,\cdots,12\\
+\theta_j = \text{logistic}(A_j\underline\beta) \\
+y_j \sim \text{Bern}(\theta_j)\\
+\text{ where } A_j \text{ is the features of jth data, } \underline\beta = (\beta_1,\cdots,\beta_{12})
+\]</span></p>
+</section>
+<section id="spike-and-slab-prior" class="level4">
+<h4 class="anchored" data-anchor-id="spike-and-slab-prior">spike-and-slab prior</h4>
+<p>The second model is a modified logstic model with a spike-and-slab componenent (ref3) and hierarchical designs: <span class="math display">\[
+\sigma^2 \sim \text{InverseGamma}(\frac12,\frac12)\\
+\tau_i^2 \sim \text{Gamma}(2,1)\\
+p_i \sim \text{Beta}(1,1)\\
+\gamma_i|p_i \sim \text{Bern}(p_i)\\
+a_i|\gamma_i,p_i,\sigma^2,\tau_i^2,v_i = \gamma_i(v_1\sigma\tau_i) + (1-\gamma_i)\sigma\\
+\beta_i|a_i \stackrel{i.i.d}\sim {\cal N}(0,a_i) \quad \text{ for } i=1,2,\cdots,12\\
+y_j \sim \text{Bern}(\text{logistic}(A_j\underline\beta))\\
+\text{ where } A_j \text{ is the features of jth data, } \underline\beta = (\beta_1,\cdots,\beta_{12})
+\]</span> The <span class="math inline">\(a_i\)</span> is a mixture of “spike” and “slab”. It provides a smaller variance for <span class="math inline">\(\beta_i\)</span> when it is likely to be 0, and a large variance for non-zero <span class="math inline">\(\beta_i\)</span>. The hyperparameter <span class="math inline">\(v_i\)</span> is given manually to control the “width of the slab”. According to (ref 2), the zero-valued <span class="math inline">\(\beta_i\)</span> is expected to be spike centered at 0, and non-zero <span class="math inline">\(\beta_i\)</span> is spread with large value.</p>
+<p>Note that <span class="math inline">\(\gamma_i\)</span> acts as an indicator function with discrete supports, Rao-Blackwellization is needed to performed for the implementation of stan. It follows that <span class="math display">\[
+\gamma(\beta_i,p_i,\tau_i,\sigma)=\sum_{\gamma_i=0}^1 \gamma(\beta_i,\gamma_i,p_i,\tau_i,\sigma) \\
+=f_{IG}(\sigma^2;\frac12,\frac12)f_{Gamma}(\tau_i^2;2,1)f_{Beta}(p_i;1,1)\left[p_i\gamma_{Norm}(\beta_i;0,v_1\sigma\tau_i) + (1-p_i)\gamma_{Norm}(\beta_i;0,\sigma)\right]
+\]</span></p>
+</section>
+<section id="mcmc-code" class="level4">
+<h4 class="anchored" data-anchor-id="mcmc-code">mcmc code</h4>
+<ol type="1">
+<li>stan codes - normal</li>
+</ol>
+<div class="cell" data-output.var="normal">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> N; <span class="co"># number of train data</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> K; <span class="co"># number of features</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[N] <span class="dt">int</span> y; <span class="co"># label of train</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">matrix</span>[N, K] X; <span class="co"># train features</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span> {</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[K] betas; <span class="co"># coefficients for features</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>  betas ~ normal(<span class="dv">0</span>, <span class="dv">10</span>);</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>  y ~ bernoulli_logit(X * betas);</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<ol start="2" type="1">
+<li>stan codes - spike and slab</li>
+</ol>
+<div class="cell" data-output.var="sas">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> N; <span class="co"># number of train data</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> K; <span class="co"># number of features</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[N] <span class="dt">int</span> y; <span class="co"># label of train</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">matrix</span>[N, K] X; <span class="co"># train features</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> v_1; <span class="co">#control slab</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span> {</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; sigma_squared; <span class="co"># normal variance</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt;[K] tau_squared; <span class="co">#v ariance for each beta</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>&lt;<span class="kw">lower</span>=<span class="fl">0.01</span>, <span class="kw">upper</span>=<span class="dv">1</span>&gt;[K] ps; <span class="co"># probability to generate 0 or 1 for indicators</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">#vector[K] as; spike and slab component, no more needed since Blackwellization</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[K] betas; <span class="co"># coefficients</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a><span class="kw">transformed parameters</span> {</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; sigma = sqrt(sigma_squared); <span class="co"># for normal implementation, need std</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt;[K] tau = sqrt(tau_squared);</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span> {</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>  ps ~ beta(<span class="dv">1</span>, <span class="dv">1</span>); <span class="co"># prior for p_i</span></span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>  sigma_squared ~ inv_gamma(<span class="fl">0.5</span>,<span class="fl">0.5</span>); <span class="co"># prior for sigma</span></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>  tau_squared ~ gamma(<span class="dv">2</span>,<span class="dv">1</span>); <span class="co"># prior for tau</span></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Blackwellization over Bernoulli</span></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span>:K) {</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">target +=</span> log_sum_exp(</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>    log(ps[i])+gamma_lpdf(tau_squared[i]|<span class="dv">2</span>,<span class="dv">1</span>)+normal_lpdf(betas[i]|<span class="dv">0</span>,v_1*tau[i]*sigma),</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>    log(<span class="dv">1</span>-ps[i])+normal_lpdf(betas[i]|<span class="dv">0</span>,sigma));</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>  y ~ bernoulli_logit(X * betas);</span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<ol start="3" type="1">
+<li>fit-inputs</li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>input_normal <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">N =</span> <span class="dv">2000</span>,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">K=</span><span class="dv">12</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">y=</span>df_train<span class="sc">$</span>Class,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">X =</span> X_train_scale <span class="co"># scaled features</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>input_sas <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">N =</span> <span class="dv">2000</span>,</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">K=</span><span class="dv">12</span>,</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">y=</span>df_train<span class="sc">$</span>Class,</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">X =</span> X_train_scale, <span class="co"># scaled features</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">v_1=</span> <span class="dv">15</span> <span class="co"># chosen by hand</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<ol start="4" type="1">
+<li>run-MCMC</li>
+</ol>
+<p>Takes about 210s for each chain.</p>
+<p>325,432s for each chain</p>
+</section>
+</section>
+<section id="diagnosis" class="level3">
+<h3 class="anchored" data-anchor-id="diagnosis">Diagnosis</h3>
+<section id="fast-mixing" class="level4">
+<h4 class="anchored" data-anchor-id="fast-mixing">fast mixing</h4>
+<p>1-traceplots</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># helper function</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>betas_name <span class="ot">=</span> <span class="fu">c</span>()</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>) {</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  betas_name[i] <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"betas["</span>,i,<span class="st">"]"</span>)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>ps_name <span class="ot">=</span> <span class="fu">c</span>()</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>) {</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  ps_name[i] <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"ps["</span>,i,<span class="st">"]"</span>)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">#trace plot for normal model</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_trace</span>(fit_normal, <span class="at">pars=</span>betas_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co">#trace plot for spike-and-slab model</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_trace</span>(fit_sas, <span class="at">pars=</span>betas_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-13-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>2 - rank plots</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>) {</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">#trace plot for normal model</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="fu">mcmc_rank_hist</span>(fit_normal, <span class="at">pars=</span>betas_name[i]))</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">#trace plot for spike-and-slab model</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="fu">mcmc_rank_hist</span>(fit_sas, <span class="at">pars=</span>betas_name[i]))</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-12.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-13.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-14.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-15.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-16.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-17.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-18.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-19.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-20.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-21.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-22.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-23.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-14-24.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>From the traceplots and the rank plots, both MCMC are fast-mixing. The traceplots are undistinguishable between two chains, and the rank plots are nearly uniform.</p>
+</section>
+<section id="goodness-of-fit" class="level4">
+<h4 class="anchored" data-anchor-id="goodness-of-fit">Goodness-of-fit</h4>
+<p>It is difficult to perform posterior predictive check on the binary data, since the credible set only contains 0 and 1. Gelman et al.&nbsp;(2000) provide some posterior check methods for discrete regressions (ref4). The simple checks for mean and standard deviation are performed. The Predictions are generated by the MCMC coefficients. The mean value and the standard deviation of the true data (brown dashed lines) fall within the 99% credible intervals(blue dashed lines). In addition, The 95% credible interval of prediction accuracy on the training data of the normal prior model is (81.55%, 84.50%). The interval for spike-and-slab model is (81.40%, 84.45%). Both are much better than the baseline (52.25%) and have similar coverage. Therefore, both models are approximately well-specified.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co">#helper function to generate predictions with given features and mcmc samples</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>generate_prediction <span class="ot">&lt;-</span> <span class="cf">function</span>(X, fit) {</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  samples <span class="ot">&lt;-</span> <span class="fu">extract</span>(fit)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  probs <span class="ot">&lt;-</span> <span class="fu">inv.logit</span>(samples<span class="sc">$</span>betas <span class="sc">%*%</span> <span class="fu">t</span>(X))[<span class="dv">5001</span><span class="sc">:</span><span class="dv">10000</span>,] <span class="co"># predicted probabilities for the latter 5000 iterations</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  y_pred <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rbinom</span>(<span class="at">n=</span><span class="dv">10</span><span class="sc">^</span><span class="dv">7</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> <span class="fu">as.vector</span>(probs)), <span class="at">nrow =</span> <span class="dv">5000</span>)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(y_pred)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="co">#helper function to generate accuracy with given features and mcmc samples</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>generate_accuracy <span class="ot">&lt;-</span> <span class="cf">function</span>(X, y, fit) {</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>  y_pred <span class="ot">=</span><span class="fu">generate_prediction</span>(X, fit)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>  accuracy <span class="ot">=</span> <span class="fu">c</span>()</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">5000</span>) {</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>    accuracy <span class="ot">=</span> <span class="fu">c</span>(accuracy, <span class="fu">mean</span>(y_pred[i,]<span class="sc">==</span>y))</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(accuracy)</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># posterior prediction</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1054</span>)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>pred_norm_train <span class="ot">&lt;-</span> <span class="fu">generate_prediction</span>(X_train_scale, fit_normal)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>pred_sas_train <span class="ot">&lt;-</span> <span class="fu">generate_prediction</span>(X_train_scale, fit_sas)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>acc_norm_train <span class="ot">&lt;-</span> <span class="fu">generate_accuracy</span>(X_train_scale, df_train<span class="sc">$</span>Class, fit_normal)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>acc_sas_train <span class="ot">&lt;-</span> <span class="fu">generate_accuracy</span>(X_train_scale, df_train<span class="sc">$</span>Class, fit_sas)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 95% credible intervals for accuracy</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">quantile</span>(acc_norm_train, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> 2.5% 97.5% 
+0.815 0.845 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">quantile</span>(acc_sas_train, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> 2.5% 97.5% 
+0.814 0.844 </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># check mean and sd</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>pred_mean_norm <span class="ot">&lt;-</span> <span class="fu">apply</span>(pred_norm_train,<span class="dv">1</span>,mean)</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>pred_mean_sas <span class="ot">&lt;-</span> <span class="fu">apply</span>(pred_sas_train,<span class="dv">1</span>,mean)</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>pred_sd_norm <span class="ot">&lt;-</span> <span class="fu">apply</span>(pred_norm_train,<span class="dv">1</span>,sd)</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>pred_sd_sas <span class="ot">&lt;-</span> <span class="fu">apply</span>(pred_sas_train,<span class="dv">1</span>,sd)</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>df_check <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">mean_norm =</span> pred_mean_norm,</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>                       <span class="at">mean_sas =</span> pred_mean_sas,</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>                       <span class="at">sd_norm =</span> pred_sd_norm,</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>                       <span class="at">sd_sas =</span> pred_sd_sas)</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a><span class="co"># visualize</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_check, <span class="fu">aes</span>(<span class="at">x=</span>mean_norm)) <span class="sc">+</span> </span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins=</span><span class="dv">30</span>,<span class="at">color =</span> <span class="st">"white"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(df_train<span class="sc">$</span>Class), </span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"darkred"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">quantile</span>(pred_mean_norm, <span class="fu">c</span>(<span class="fl">0.005</span>,<span class="fl">0.995</span>)), </span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">n.breaks =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"mean value (the proportion of Ürgüp Sivrisi)"</span>) <span class="sc">+</span></span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Posterior predictive check of the mean value (normal prior)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+ℹ Please use `linewidth` instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_check, <span class="fu">aes</span>(<span class="at">x=</span>mean_sas)) <span class="sc">+</span> </span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins=</span><span class="dv">30</span>,<span class="at">color =</span> <span class="st">"white"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(df_train<span class="sc">$</span>Class), </span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"darkred"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">quantile</span>(pred_mean_sas, <span class="fu">c</span>(<span class="fl">0.005</span>,<span class="fl">0.995</span>)), </span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">n.breaks =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"mean value (the proportion of Ürgüp Sivrisi)"</span>) <span class="sc">+</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Posterior predictive check of the mean value (spike-and-slab prior)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-18-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_check, <span class="fu">aes</span>(<span class="at">x=</span>sd_norm)) <span class="sc">+</span> </span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins=</span><span class="dv">30</span>,<span class="at">color =</span> <span class="st">"white"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">sd</span>(df_train<span class="sc">$</span>Class), </span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"darkred"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">quantile</span>(pred_sd_norm, <span class="fu">c</span>(<span class="fl">0.005</span>,<span class="fl">0.995</span>)), </span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">n.breaks =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"the sample standard deviation"</span>) <span class="sc">+</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Posterior predictive check of the sd value (normal prior)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-18-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_check, <span class="fu">aes</span>(<span class="at">x=</span>sd_sas)) <span class="sc">+</span> </span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins=</span><span class="dv">30</span>,<span class="at">color =</span> <span class="st">"white"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">sd</span>(df_train<span class="sc">$</span>Class), </span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"darkred"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">quantile</span>(pred_sd_sas, <span class="fu">c</span>(<span class="fl">0.005</span>,<span class="fl">0.995</span>)), </span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">n.breaks =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"the sample standard deviation"</span>) <span class="sc">+</span></span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Posterior predictive check of the sd value (spike-and-slab prior)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-18-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The train accuracy histogram</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="fu">data.frame</span>(<span class="at">accuracy=</span>acc_norm_train), <span class="fu">aes</span>(<span class="at">x=</span>accuracy)) <span class="sc">+</span> </span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins=</span><span class="dv">30</span>,<span class="at">color =</span> <span class="st">"white"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(acc_norm_train), </span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"orange"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">quantile</span>(acc_norm_train, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>)), </span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">n.breaks =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Histgram for training accuracy of normal prior"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="fu">data.frame</span>(<span class="at">accuracy=</span>acc_sas_train), <span class="fu">aes</span>(<span class="at">x=</span>accuracy)) <span class="sc">+</span> </span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins=</span><span class="dv">30</span>,<span class="at">color =</span> <span class="st">"white"</span>, <span class="at">alpha=</span><span class="fl">0.8</span>) <span class="sc">+</span> </span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(acc_sas_train), </span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"orange"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">quantile</span>(acc_sas_train, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>)), </span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype=</span><span class="st">"dashed"</span>, </span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">color =</span> <span class="st">"blue"</span>, <span class="at">size=</span><span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">n.breaks =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Histgram for training accuracy of spike-and-slab prior"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-19-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="results" class="level3">
+<h3 class="anchored" data-anchor-id="results">Results</h3>
+<section id="posterior-distribution" class="level4">
+<h4 class="anchored" data-anchor-id="posterior-distribution">posterior distribution</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co">#posterior plot for normal model</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(fit_normal, <span class="at">pars=</span>betas_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co">#posterior plot for spike-and-slab model</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(fit_sas, <span class="at">pars=</span>betas_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-20-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Let’s compare the posterior distribution. For <span class="math inline">\(\beta_2,\beta_3\)</span>, the spike-and-slab priors shift the mode to 0, which implies that <code>Perimeter</code> and <code>Major_Axis_Length</code> are likely to be irrelevant morphological features. Similarly, the “spike” shifted to 0 for <span class="math inline">\(\beta_{10}\)</span>. The rest of coefficients show similar patterns between two models. Note that <span class="math inline">\(\beta_5\)</span> is centered at 0 in both models, but the distribution is narrower with the spike-and-slab prior, this indicates that <code>Convex_Area</code> is not related to the classification significantly.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># beta10</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(fit_normal, <span class="at">pars=</span>betas_name[<span class="dv">10</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(fit_sas, <span class="at">pars=</span>betas_name[<span class="dv">10</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-21-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co">#beta 2,3</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(fit_normal, <span class="at">pars=</span>betas_name[<span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mcmc_areas</span>(fit_sas, <span class="at">pars=</span>betas_name[<span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-22-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="prediction-performance" class="level4">
+<h4 class="anchored" data-anchor-id="prediction-performance">Prediction performance</h4>
+<p>In addition to the posterior inference, the prediction performances on the test data are also compared. The 95% credible intervals of the accuracy on test data are almost identical ([79.7%, 82.85%] for normal model and [79.8%, 82.85%] for spike-and-slab priors). The predicition accuracy is not significant different with Kolmogorov-Smirnov test (p-value 0.8367).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the posterior accuracy with random seed 1125</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1125</span>)</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>acc_norm_test <span class="ot">&lt;-</span> <span class="fu">generate_accuracy</span>(X_test_scale, df_test<span class="sc">$</span>Class, fit_normal)</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>acc_sas_test <span class="ot">&lt;-</span> <span class="fu">generate_accuracy</span>(X_test_scale, df_test<span class="sc">$</span>Class, fit_sas)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="co"># show the posterior statistics</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(acc_norm_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>(acc_sas_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-24-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">quantile</span>(acc_norm_test, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  2.5%  97.5% 
+0.7975 0.8280 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">quantile</span>(acc_sas_test, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  2.5%  97.5% 
+0.7975 0.8285 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ks.test</span>(acc_norm_test, acc_sas_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in ks.test.default(acc_norm_test, acc_sas_test): p-value will be
+approximate in the presence of ties</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Asymptotic two-sample Kolmogorov-Smirnov test
+
+data:  acc_norm_test and acc_sas_test
+D = 0.008, p-value = 0.9972
+alternative hypothesis: two-sided</code></pre>
+</div>
+</div>
+</section>
+<section id="feature-selection" class="level4">
+<h4 class="anchored" data-anchor-id="feature-selection">feature selection</h4>
+<p>Based on the “spikes”, we drop the coefficients <span class="math inline">\(\beta_2,\beta_3\)</span> and their corresponding features to make predictions on the test data with less features. With less features, the 95% credible interval of the accuracy is (79.8%, 82.85%), even narrower than the full model. The Kolmogorov-Smirnov test shows a significant difference between the two distributions of accuracy (p-value 0.0017).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="co"># replace with 0 valued features</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>X_train_scale_0 <span class="ot">&lt;-</span> X_train_scale[,<span class="sc">-</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>)]</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>X_test_scale_0 <span class="ot">&lt;-</span> X_test_scale[,<span class="sc">-</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>)]</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>input_sas_0 <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">N =</span> <span class="dv">2000</span>,</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">K=</span><span class="dv">10</span>,</span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">y=</span>df_train<span class="sc">$</span>Class,</span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">X =</span> X_train_scale_0, <span class="co"># scaled features</span></span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">v_1=</span> <span class="dv">15</span> <span class="co"># chosen manually</span></span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co">#95% credible interval</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1125</span>)</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>acc_sas_test_0 <span class="ot">&lt;-</span> <span class="fu">generate_accuracy</span>(X_test_scale_0, df_test<span class="sc">$</span>Class, fit_sas_0)</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a><span class="fu">quantile</span>(acc_sas_test_0, <span class="fu">c</span>(<span class="fl">0.025</span>,<span class="fl">0.975</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  2.5%  97.5% 
+0.7975 0.8290 </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># visualize</span></span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>acc_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">accuracy=</span><span class="fu">c</span>(acc_sas_test, acc_sas_test_0), <span class="at">model=</span><span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">"full model"</span>, <span class="dv">5000</span>), <span class="fu">rep</span>(<span class="st">"reduced model"</span>, <span class="dv">5000</span>)))</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(acc_df, <span class="fu">aes</span>(<span class="at">x=</span>accuracy,<span class="at">fill=</span>model)) <span class="sc">+</span></span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">alpha=</span><span class="fl">0.8</span>, <span class="at">position =</span> <span class="st">"identity"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Report_code_orgnaized_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># test on the </span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ks.test</span>(acc_sas_test_0, acc_sas_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in ks.test.default(acc_sas_test_0, acc_sas_test): p-value will be
+approximate in the presence of ties</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Asymptotic two-sample Kolmogorov-Smirnov test
+
+data:  acc_sas_test_0 and acc_sas_test
+D = 0.0392, p-value = 0.000921
+alternative hypothesis: two-sided</code></pre>
+</div>
+</div>
+<ul>
+<li>Is the spike-and-slab model stable dealing smaller sample size? (further study)</li>
+</ul>
+</section>
+</section>
+<section id="conclusion-and-discussion" class="level3">
+<h3 class="anchored" data-anchor-id="conclusion-and-discussion">Conclusion and discussion</h3>
+<ul>
+<li>Main takeaway</li>
+<li>application and significance</li>
+<li>Key limitations</li>
+</ul>
+</section>
+</section>
+<section id="reference" class="level2">
+<h2 class="anchored" data-anchor-id="reference">Reference</h2>
+<p>[1] Koklu, M., Sarigil, S., &amp; Ozbek, O. (2021). The use of machine learning methods in classification of pumpkin seeds (cucurbita pepo L.). Genetic Resources and Crop Evolution, 68(7), 2713-2726. https://doi.org/10.1007/s10722-021-01226-0</p>
+<p>[2] George, E. I., &amp; McCulloch, R. E. (1993). Variable selection via gibbs sampling. Journal of the American Statistical Association, 88(423), 881-889. https://doi.org/10.1080/01621459.1993.10476353</p>
+<p>[3] ISHWARAN, H., &amp; RAO, J. S. (2005). Spike and slab variable selection : Frequentist and bayesian strategies. The Annals of Statistics, 33(2), 730-773. https://doi.org/10.1214/009053604000001147</p>
+<p>[4] Gelman, A., Goegebeur, Y., Tuerlinckx, F., &amp; Van Mechelen, I. (2000). Diagnostic checks for discrete data regression models using posterior predictive simulations. Applied Statistics, 49(2), 247-268. https://doi.org/10.1111/1467-9876.00190</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

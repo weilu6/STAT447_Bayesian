@@ -227,7 +227,7 @@ fit_sas <- sampling(
 
 325,432s for each chain
 
-### Diagnosis
+### Diagnostics
 
 #### fast mixing
 
@@ -327,7 +327,7 @@ ggplot(df_check, aes(x=mean_norm)) +
              color = "blue", size=1.5) +
   scale_x_continuous(n.breaks = 10) +
   xlab("mean value (the proportion of Ürgüp Sivrisi)") +
-  ggtitle("Predictive check of the mean value (normal prior)")
+  ggtitle("Posterior predictive check of the mean value (normal prior)")
 
 ggplot(df_check, aes(x=mean_sas)) + 
   geom_histogram(bins=30,color = "white", alpha=0.8) + 
@@ -339,7 +339,7 @@ ggplot(df_check, aes(x=mean_sas)) +
              color = "blue", size=1.5) +
   scale_x_continuous(n.breaks = 10) +
   xlab("mean value (the proportion of Ürgüp Sivrisi)") +
-  ggtitle("Predictive check of the mean value (spike-and-slab prior)")
+  ggtitle("Posterior predictive check of the mean value (spike-and-slab prior)")
 
 ggplot(df_check, aes(x=sd_norm)) + 
   geom_histogram(bins=30,color = "white", alpha=0.8) + 
@@ -351,7 +351,7 @@ ggplot(df_check, aes(x=sd_norm)) +
              color = "blue", size=1.5) +
   scale_x_continuous(n.breaks = 10) +
   xlab("the sample standard deviation") +
-  ggtitle("Predictive check of the sd value (normal prior)")
+  ggtitle("Posterior predictive check of the sd value (normal prior)")
 
 ggplot(df_check, aes(x=sd_sas)) + 
   geom_histogram(bins=30,color = "white", alpha=0.8) + 
@@ -363,7 +363,7 @@ ggplot(df_check, aes(x=sd_sas)) +
              color = "blue", size=1.5) +
   scale_x_continuous(n.breaks = 10) +
   xlab("the sample standard deviation") +
-  ggtitle("Predictive check of the sd value (spike-and-slab prior)")
+  ggtitle("Posterior predictive check of the sd value (spike-and-slab prior)")
 ```
 
 ```{r}
@@ -399,13 +399,13 @@ ggplot(data.frame(accuracy=acc_sas_train), aes(x=accuracy)) +
 #posterior plot for normal model
 mcmc_areas(fit_normal, pars=betas_name)
 #posterior plot for spike-and-slab model
-mcmc_areas(fit_sas, pars=betas_name) + xlim(c(-50,50))
+mcmc_areas(fit_sas, pars=betas_name)
 ```
 
 Let's compare the posterior distribution. For $\beta_2,\beta_3$, the spike-and-slab priors shift the mode to 0, which implies that `Perimeter` and `Major_Axis_Length` are likely to be irrelevant morphological features. Similarly, the "spike" shifted to 0 for $\beta_{10}$. The rest of coefficients show similar patterns between two models. Note that $\beta_5$ is centered at 0 in both models, but the distribution is narrower with the spike-and-slab prior, this indicates that `Convex_Area` is not related to the classification significantly.
 
 ```{r}
-# beta1
+# beta10
 mcmc_areas(fit_normal, pars=betas_name[10])
 mcmc_areas(fit_sas, pars=betas_name[10])
 ```
@@ -418,7 +418,7 @@ mcmc_areas(fit_sas, pars=betas_name[2:3])
 
 #### Prediction performance
 
-In addition to the posterior inference, the prediction performances on the test data are also compared. The 95% credible intervals of the accuray on test data are almost identical (\[79.7%, 82.85%\] for normal model and \[79.8%, 82.85%\] for spike-and-slab priors). The predicition accuracy is not significant different with Kolmogorov-Smirnov test (p-value 0.8367).
+In addition to the posterior inference, the prediction performances on the test data are also compared. The 95% credible intervals of the accuracy on test data are almost identical (\[79.7%, 82.85%\] for normal model and \[79.8%, 82.85%\] for spike-and-slab priors). The predicition accuracy is not significant different with Kolmogorov-Smirnov test (p-value 0.8367).
 
 ```{r}
 # compute the posterior accuracy with random seed 1125
